@@ -42,9 +42,9 @@ export class MetaMaskAdapter extends Adapter {
   private _state: AdapterState = AdapterState.Disconnect; // So the library will connect once the user selects the wallet (Avoid 2 click)
   private _connecting = false;
   private _address: string | null = null;
+  private _scope: Scope | undefined;
   private selectedAddressOnPageLoadPromise: Promise<string | undefined> | undefined;
   private removeAccountsChangedListener: (() => void) | undefined;
-  protected scope: Scope | undefined;
   client: MultichainApiClient;
 
   /**
@@ -139,11 +139,11 @@ export class MetaMaskAdapter extends Adapter {
   async signTransaction(transaction: Transaction, privateKey?: string): Promise<SignedTransaction> {
     console.log('MetaMaskAdapter.signTransaction called', { transaction, privateKey });
     try {
-      if (!this.scope) {
+      if (!this._scope) {
         throw new WalletDisconnectedError('Wallet not connected');
       }
       const result = await this.client.invokeMethod({
-        scope: this.scope,
+        scope: this._scope,
         request: {
           method: 'signTransaction',
           params: { transaction, privateKey },
@@ -172,7 +172,7 @@ export class MetaMaskAdapter extends Adapter {
       return;
     }
     this.setAddress(null);
-    this.scope = undefined;
+    this.setScope(undefined);
     this.setState(AdapterState.Disconnect);
     this.emit('disconnect');
   }
@@ -186,11 +186,11 @@ export class MetaMaskAdapter extends Adapter {
   async signMessage(message: string, privateKey?: string): Promise<string> {
     console.log('MetaMaskAdapter.signMessage called', { message, privateKey });
     try {
-      if (!this.scope) {
+      if (!this._scope) {
         throw new WalletDisconnectedError('Wallet not connected');
       }
       const result = await this.client.invokeMethod({
-        scope: this.scope,
+        scope: this._scope,
         request: {
           method: 'signMessage',
           params: { message, privateKey },
@@ -214,25 +214,25 @@ export class MetaMaskAdapter extends Adapter {
    */
   async switchChain(chainId: string): Promise<void> {
     console.log('MetaMaskAdapter.switchChain called', { chainId });
-    if (!this.scope) {
+    if (!this._scope) {
       throw new WalletDisconnectedError('Wallet not connected');
     }
 
     const newScope = chainIdToScope(chainId);
-    if (newScope === this.scope) {
+    if (newScope === this._scope) {
       return;
     }
 
     const session = await this.client.getSession();
     const sessionAccounts = session?.sessionScopes[newScope]?.accounts;
     if (sessionAccounts?.includes(`${newScope}:${this._address}`)) {
-      this.scope = newScope;
+      this.setScope(newScope);
     } else {
       // Create session for the new scope
       await this.createSession(newScope, this.address ? [this.address] : undefined);
     }
 
-    const newChainId = scopeToChainId(this.scope);
+    const newChainId = scopeToChainId(this._scope);
     this.emit('chainChanged', newChainId);
   }
 
@@ -243,12 +243,12 @@ export class MetaMaskAdapter extends Adapter {
   async network(): Promise<Network> {
     console.log('MetaMaskAdapter.network called');
     try {
-      if (this.state !== AdapterState.Connected || !this.scope) {
+      if (this.state !== AdapterState.Connected || !this._scope) {
         throw new WalletDisconnectedError('Wallet not connected');
       }
 
-      const chainId = scopeToChainId(this.scope);
-      const networkType = scopeToNetworkType(this.scope);
+      const chainId = scopeToChainId(this._scope);
+      const networkType = scopeToNetworkType(this._scope);
 
       return {
         networkType,
@@ -310,7 +310,8 @@ export class MetaMaskAdapter extends Adapter {
       }
       // Get the address from accountChanged emitted on page load, if any
       const address = await this.selectedAddressOnPageLoadPromise;
-      this.updateSession(existingSession, address);
+      const scope = this.restoreScope();
+      this.updateSession(existingSession, scope, address);
     } catch (error) {
       console.warn('Error restoring session', error);
     }
@@ -342,7 +343,7 @@ export class MetaMaskAdapter extends Adapter {
    * Updates the session and the address to connect to.
    * This method handles the logic for selecting the appropriate Tron network scope
    * and address to connect to based on the following priority:
-   * 1. First tries to find an available scope in order: mainnet > nile > shasta
+   * 1. First tries to find an available scope in order: previously selected scope > mainnet > shasta > nile
    * 2. For address selection:
    *    - First tries to use the selectedAddress param, most likely coming from
    *      the accountsChanged event
@@ -352,13 +353,15 @@ export class MetaMaskAdapter extends Adapter {
    * @param session - The session data containing available scopes and accounts
    * @param selectedAddress - The address that was selected by the user, if any
    */
-  private updateSession(session: any, selectedAddress?: string) {
-    console.log('MetaMaskAdapter.updateSession called', { session, selectedAddress });
+  private updateSession(session: any, selectedScope?: Scope, selectedAddress?: string) {
+    console.log('MetaMaskAdapter.updateSession called', { session, selectedScope, selectedAddress });
     // Get session scopes
     const sessionScopes = new Set(Object.keys(session?.sessionScopes ?? {}));
-    // Find the first available scope in priority order: mainnet > nile > shasta
-    const scopePriorityOrder = [Scope.MAINNET, Scope.NILE, Scope.SHASTA];
+
+    // If a scope was previously selected, try to use it or find the first available scope in priority order: mainnet > shasta > nile
+    const scopePriorityOrder = (selectedScope ? [selectedScope] : []).concat([Scope.MAINNET, Scope.SHASTA, Scope.NILE]);
     const scope = scopePriorityOrder.find((scope) => sessionScopes.has(scope));
+
     // If no scope is available, don't disconnect so that we can create/update a new session
     if (!scope) {
       this.setAddress(null);
@@ -387,7 +390,7 @@ export class MetaMaskAdapter extends Adapter {
     }
     // Update the address and scope
     this.setAddress(addressToConnect);
-    this.scope = scope;
+    this.setScope(scope);
   }
 
   /**
@@ -426,7 +429,7 @@ export class MetaMaskAdapter extends Adapter {
       return;
     }
     const session = await this.client.getSession();
-    this.updateSession(session, addressToSelect);
+    this.updateSession(session, this._scope, addressToSelect);
     // Emit accountsChanged if address changed
     if (this._address !== addressToSelect) {
       this.emit('accountsChanged', addressToSelect, this._address || '');
@@ -453,5 +456,23 @@ export class MetaMaskAdapter extends Adapter {
       this._state = state;
       this.emit('stateChanged', state);
     }
+  }
+
+  /**
+   * Sets the current scope.
+   * @param scope - The new scope.
+   */
+  private setScope(scope?: Scope) {
+    localStorage.setItem('metamaskAdapterScope', scope ?? '');
+    this._scope = scope;
+  }
+
+  /**
+   * Restores the scope from local storage.
+   * @returns The restored scope, or undefined if not found.
+   */
+  private restoreScope(): Scope | undefined {
+    const scope = localStorage.getItem('metamaskAdapterScope');
+    return scope ? (scope as Scope) : undefined;
   }
 }

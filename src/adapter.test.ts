@@ -22,6 +22,16 @@ global.window = {
   open: vi.fn(),
 } as any;
 
+// Mock localStorage
+global.localStorage = {
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  clear: vi.fn(),
+  length: 0,
+  key: vi.fn(),
+} as any;
+
 // Mock the abstract adapter
 vi.mock('@tronweb3/tronwallet-abstract-adapter', () => ({
   Adapter: class MockAdapter {
@@ -123,7 +133,7 @@ describe('MetaMaskAdapter', () => {
 
       expect(mockClient.getSession).toHaveBeenCalled();
       expect(adapter.address).toBe(TEST_ADDRESSES.MAINNET);
-      expect((adapter as any).scope).toBe(Scope.MAINNET);
+      expect((adapter as any)._scope).toBe(Scope.MAINNET);
       expect(adapter.state).toBe('Connected');
     });
 
@@ -147,7 +157,7 @@ describe('MetaMaskAdapter', () => {
         },
       });
       expect(adapter.address).toBe(TEST_ADDRESSES.MAINNET);
-      expect((adapter as any).scope).toBe(Scope.MAINNET);
+      expect((adapter as any)._scope).toBe(Scope.MAINNET);
       expect(adapter.state).toBe('Connected');
     });
 
@@ -158,7 +168,7 @@ describe('MetaMaskAdapter', () => {
       await adapter.connect();
 
       expect(adapter.address).toBe(TEST_ADDRESSES.MAINNET);
-      expect((adapter as any).scope).toBe(Scope.MAINNET);
+      expect((adapter as any)._scope).toBe(Scope.MAINNET);
     });
 
     it('should emit connect event on successful connection', async () => {
@@ -182,7 +192,7 @@ describe('MetaMaskAdapter', () => {
       await adapter.disconnect();
 
       expect(adapter.address).toBeNull();
-      expect((adapter as any).scope).toBeUndefined();
+      expect((adapter as any)._scope).toBeUndefined();
       expect(adapter.state).toBe('Disconnect');
       expect(adapter.emit).toHaveBeenCalledWith('disconnect');
     });
@@ -298,8 +308,8 @@ describe('MetaMaskAdapter', () => {
 
       expect(mockClient.createSession).toHaveBeenCalledWith({
         optionalScopes: {
-          'tron:0xcd8690dc': {
-            accounts: [`tron:0xcd8690dc:${TEST_ADDRESSES.MAINNET}`],
+          [Scope.NILE]: {
+            accounts: [`${Scope.NILE}:${TEST_ADDRESSES.MAINNET}`],
             methods: ['signTransaction', 'signMessage'],
             notifications: ['accountsChanged', 'chainChanged'],
           },
@@ -308,7 +318,7 @@ describe('MetaMaskAdapter', () => {
           tron_accountsChanged_notifications: true,
         },
       });
-      expect((adapter as any).scope).toBe('tron:0xcd8690dc');
+      expect((adapter as any)._scope).toBe(Scope.NILE);
       expect(adapter.emit).toHaveBeenCalledWith('chainChanged', '0xcd8690dc');
     });
 
@@ -323,12 +333,43 @@ describe('MetaMaskAdapter', () => {
     describe('tryRestoringSession', () => {
       it('should restore session with available scopes', async () => {
         mockClient.getSession.mockResolvedValue(TEST_SESSIONS.MULTI_SCOPE);
+        global.localStorage.getItem = vi.fn().mockReturnValue(null);
 
         await (adapter as any).tryRestoringSession();
 
         expect(mockClient.getSession).toHaveBeenCalled();
         expect(adapter.address).toBe(TEST_ADDRESSES.MAINNET);
-        expect((adapter as any).scope).toBe(Scope.MAINNET);
+        expect((adapter as any)._scope).toBe(Scope.MAINNET);
+      });
+
+      it('should restore previously selected scope if available', async () => {
+        mockClient.getSession.mockResolvedValue(TEST_SESSIONS.MULTI_SCOPE);
+        global.localStorage.getItem = vi.fn().mockReturnValue(Scope.NILE);
+
+        await (adapter as any).tryRestoringSession();
+
+        expect(mockClient.getSession).toHaveBeenCalled();
+        expect(localStorage.getItem).toHaveBeenCalledWith('metamaskAdapterScope');
+        expect(adapter.address).toBe(TEST_ADDRESSES.NILE);
+        expect((adapter as any)._scope).toBe(Scope.NILE);
+      });
+
+      it('should fallback to mainnet if previously selected scope is not available', async () => {
+        const sessionWithMainnetOnly = {
+          sessionScopes: {
+            [Scope.MAINNET]: {
+              accounts: [`${Scope.MAINNET}:${TEST_ADDRESSES.MAINNET}`],
+            },
+          },
+        };
+        mockClient.getSession.mockResolvedValue(sessionWithMainnetOnly);
+        global.localStorage.getItem = vi.fn().mockReturnValue(Scope.NILE);
+
+        await (adapter as any).tryRestoringSession();
+
+        expect(mockClient.getSession).toHaveBeenCalled();
+        expect(adapter.address).toBe(TEST_ADDRESSES.MAINNET);
+        expect((adapter as any)._scope).toBe(Scope.MAINNET);
       });
 
       it('should not set address if no accounts in scope', async () => {
@@ -348,7 +389,7 @@ describe('MetaMaskAdapter', () => {
       it('should prioritize mainnet scope', () => {
         (adapter as any).updateSession(TEST_SESSIONS.MULTI_SCOPE);
 
-        expect((adapter as any).scope).toBe(Scope.MAINNET);
+        expect((adapter as any)._scope).toBe(Scope.MAINNET);
         expect(adapter.address).toBe(TEST_ADDRESSES.MAINNET);
       });
 
@@ -356,24 +397,24 @@ describe('MetaMaskAdapter', () => {
         const session = TEST_SESSIONS.MULTI_SCOPE;
         const selectedAddress = TEST_ADDRESSES.NILE;
 
-        (adapter as any).updateSession(session, selectedAddress);
+        (adapter as any).updateSession(session, undefined, selectedAddress);
 
-        expect((adapter as any).scope).toBe(Scope.MAINNET);
+        expect((adapter as any)._scope).toBe(Scope.MAINNET);
         expect(adapter.address).toBe(TEST_ADDRESSES.MAINNET);
       });
 
       it('should fallback to first address if no match', () => {
         const session = {
           sessionScopes: {
-            [TEST_SCOPES.NILE]: {
-              accounts: [`${TEST_SCOPES.NILE}:${TEST_ADDRESSES.NILE}`],
+            [Scope.NILE]: {
+              accounts: [`${Scope.NILE}:${TEST_ADDRESSES.NILE}`],
             },
           },
         };
 
         (adapter as any).updateSession(session);
 
-        expect((adapter as any).scope).toBe(Scope.NILE);
+        expect((adapter as any)._scope).toBe(Scope.NILE);
         expect(adapter.address).toBe(TEST_ADDRESSES.NILE);
       });
     });
