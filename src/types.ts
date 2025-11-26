@@ -19,7 +19,7 @@ export type TronRpc = {
  * Enum of supported Tron network scopes in CAIP-2 format.
  */
 export enum Scope {
-  MAINNET = 'tron:0x2b6653dc',
-  SHASTA = 'tron:0x94a9059e',
-  NILE = 'tron:0xcd8690dc',
+  MAINNET = 'tron:728126428',
+  SHASTA = 'tron:2494104990',
+  NILE = 'tron:3448148188',
 }
