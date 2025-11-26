@@ -1,3 +1,4 @@
+import { NetworkType } from '@tronweb3/tronwallet-abstract-adapter';
 import { Scope } from './types';
 
 /**
@@ -15,7 +16,7 @@ export function chainIdToScope(chainId: string): Scope {
     case '0x94a9059e': // Tron shasta testnet
       return Scope.SHASTA;
     default:
-      throw new Error(`Unsupported chainId: ${chainId}`);
+      throw new Error(`Could not determine scope for unsupported chainId: ${chainId}`);
   }
 }
 
@@ -34,7 +35,7 @@ export function scopeToChainId(scope: Scope): string {
     case Scope.SHASTA:
       return '0x94a9059e';
     default:
-      throw new Error(`Unsupported scope: ${scope}`);
+      throw new Error(`Could not determine chainId for unsupported scope: ${scope}`);
   }
 }
 
@@ -59,4 +60,23 @@ export function getAddressFromCaipAccountId(caipAccountId: string): string {
  */
 export function isAccountChangedEvent(data: any): boolean {
   return data?.method === 'accountsChanged';
+}
+
+/**
+ * Converts a Tron scope to its corresponding NetworkType.
+ * @param scope - The Tron scope string.
+ * @returns The corresponding NetworkType.
+ * @throws Error if the scope is unsupported.
+ */
+export function scopeToNetworkType(scope: Scope): NetworkType {
+  switch (scope) {
+    case Scope.MAINNET:
+      return NetworkType.Mainnet;
+    case Scope.NILE:
+      return NetworkType.Nile;
+    case Scope.SHASTA:
+      return NetworkType.Shasta;
+    default:
+      throw new Error(`Could not determine network type for unsupported scope: ${scope}`);
+  }
 }

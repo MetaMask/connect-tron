@@ -7,10 +7,8 @@ import {
 import {
   Adapter,
   AdapterState,
-  NetworkType,
   WalletConnectionError,
   WalletDisconnectedError,
-  WalletGetNetworkError,
   WalletReadyState,
   WalletSignMessageError,
   WalletSignTransactionError,
@@ -19,7 +17,13 @@ import {
 import type { AdapterName, Network, SignedTransaction, Transaction } from '@tronweb3/tronwallet-abstract-adapter';
 import { metamaskIcon } from './icon';
 import { Scope } from './types';
-import { chainIdToScope, getAddressFromCaipAccountId, isAccountChangedEvent, scopeToChainId } from './utils';
+import {
+  chainIdToScope,
+  getAddressFromCaipAccountId,
+  isAccountChangedEvent,
+  scopeToChainId,
+  scopeToNetworkType,
+} from './utils';
 
 /**
  * The adapter name for MetaMask.
@@ -242,34 +246,17 @@ export class MetaMaskAdapter extends Adapter {
       if (this.state !== AdapterState.Connected || !this.scope) {
         throw new WalletDisconnectedError('Wallet not connected');
       }
-      switch (this.scope) {
-        case Scope.MAINNET:
-          return {
-            networkType: NetworkType.Mainnet,
-            chainId: '0x2b6653dc',
-            fullNode: '',
-            solidityNode: '',
-            eventServer: '',
-          };
-        case Scope.SHASTA:
-          return {
-            networkType: NetworkType.Shasta,
-            chainId: '0x94a9059e',
-            fullNode: '',
-            solidityNode: '',
-            eventServer: '',
-          };
-        case Scope.NILE:
-          return {
-            networkType: NetworkType.Nile,
-            chainId: '0xcd8690dc',
-            fullNode: '',
-            solidityNode: '',
-            eventServer: '',
-          };
-        default:
-          throw new WalletGetNetworkError('Unknown scope');
-      }
+
+      const chainId = scopeToChainId(this.scope);
+      const networkType = scopeToNetworkType(this.scope);
+
+      return {
+        networkType,
+        chainId,
+        fullNode: '',
+        solidityNode: '',
+        eventServer: '',
+      };
     } catch (e: any) {
       this.emit('error', e);
       throw e;
