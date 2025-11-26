@@ -75,9 +75,9 @@ export const TEST_ADDRESSES = {
 };
 
 export const TEST_SCOPES = {
-  MAINNET: 'tron:mainnet',
-  NILE: 'tron:nile',
-  SHASTA: 'tron:shasta',
+  MAINNET: 'tron:0x2b6653dc',
+  NILE: 'tron:0xcd8690dc',
+  SHASTA: 'tron:0x94a9059e',
 };
 
 export const TEST_CHAIN_IDS = {

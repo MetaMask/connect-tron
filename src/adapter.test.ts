@@ -51,10 +51,21 @@ vi.mock('@tronweb3/tronwallet-abstract-adapter', () => ({
     NotFound: 'NotFound',
     Found: 'Found',
     Connected: 'Connected',
+    Disconnect: 'Disconnect',
     Disconnected: 'Disconnected',
   },
+  NetworkType: {
+    Mainnet: 'Mainnet',
+    Shasta: 'Shasta',
+    Nile: 'Nile',
+  },
   WalletConnectionError: class extends Error {},
-  WalletDisconnectedError: class extends Error {},
+  WalletDisconnectedError: class extends Error {
+    constructor(message = 'Wallet not connected') {
+      super(message);
+      this.name = 'WalletDisconnectedError';
+    }
+  },
   WalletGetNetworkError: class extends Error {},
   WalletNotFoundError: class extends Error {},
   WalletSignMessageError: class extends Error {},
@@ -63,7 +74,7 @@ vi.mock('@tronweb3/tronwallet-abstract-adapter', () => ({
 }));
 
 import { MetaMaskAdapter, MetaMaskAdapterName } from '../src/adapter';
-import { TronScope } from '../src/types';
+import { Scope } from '../src/types';
 import {
   type MockMultichainClient,
   TEST_ADDRESSES,
@@ -90,7 +101,7 @@ describe('MetaMaskAdapter', () => {
   describe('constructor', () => {
     it('should initialize with correct name and state', () => {
       expect(adapter.name).toBe(MetaMaskAdapterName);
-      expect(adapter.state).toBe('Loading'); // Initial state is Loading
+      expect(adapter.state).toBe('Disconnect'); // Initial state is Disconnect
     });
   });
 
@@ -112,7 +123,7 @@ describe('MetaMaskAdapter', () => {
 
       expect(mockClient.getSession).toHaveBeenCalled();
       expect(adapter.address).toBe(TEST_ADDRESSES.MAINNET);
-      expect((adapter as any).scope).toBe(TronScope.MAINNET);
+      expect((adapter as any).scope).toBe(Scope.MAINNET);
       expect(adapter.state).toBe('Connected');
     });
 
@@ -136,7 +147,7 @@ describe('MetaMaskAdapter', () => {
         },
       });
       expect(adapter.address).toBe(TEST_ADDRESSES.MAINNET);
-      expect((adapter as any).scope).toBe(TronScope.MAINNET);
+      expect((adapter as any).scope).toBe(Scope.MAINNET);
       expect(adapter.state).toBe('Connected');
     });
 
@@ -147,7 +158,7 @@ describe('MetaMaskAdapter', () => {
       await adapter.connect();
 
       expect(adapter.address).toBe(TEST_ADDRESSES.MAINNET);
-      expect((adapter as any).scope).toBe(TronScope.MAINNET);
+      expect((adapter as any).scope).toBe(Scope.MAINNET);
     });
 
     it('should emit connect event on successful connection', async () => {
@@ -172,7 +183,7 @@ describe('MetaMaskAdapter', () => {
 
       expect(adapter.address).toBeNull();
       expect((adapter as any).scope).toBeUndefined();
-      expect(adapter.state).toBeUndefined();
+      expect(adapter.state).toBe('Disconnect');
       expect(adapter.emit).toHaveBeenCalledWith('disconnect');
     });
   });
@@ -253,8 +264,9 @@ describe('MetaMaskAdapter', () => {
     it('should return current network based on scope', async () => {
       const network = await adapter.network();
 
-      expect(network).toEqual({
+      expect(network).toMatchObject({
         chainId: '0x2b6653dc',
+        networkType: 'Mainnet',
       });
     });
 
@@ -273,12 +285,21 @@ describe('MetaMaskAdapter', () => {
     });
 
     it('should switch to nile network', async () => {
+      // Mock createSession to return a session with nile scope
+      mockClient.createSession.mockResolvedValue({
+        sessionScopes: {
+          'tron:0xcd8690dc': {
+            accounts: [`tron:0xcd8690dc:${TEST_ADDRESSES.MAINNET}`],
+          },
+        },
+      });
+
       await adapter.switchChain('0xcd8690dc');
 
       expect(mockClient.createSession).toHaveBeenCalledWith({
         optionalScopes: {
-          'tron:nile': {
-            accounts: [`tron:nile:${TEST_ADDRESSES.MAINNET}`],
+          'tron:0xcd8690dc': {
+            accounts: [`tron:0xcd8690dc:${TEST_ADDRESSES.MAINNET}`],
             methods: ['signTransaction', 'signMessage'],
             notifications: ['accountsChanged', 'chainChanged'],
           },
@@ -287,7 +308,7 @@ describe('MetaMaskAdapter', () => {
           tron_accountsChanged_notifications: true,
         },
       });
-      expect((adapter as any).scope).toBe('tron:nile');
+      expect((adapter as any).scope).toBe('tron:0xcd8690dc');
       expect(adapter.emit).toHaveBeenCalledWith('chainChanged', '0xcd8690dc');
     });
 
@@ -307,7 +328,7 @@ describe('MetaMaskAdapter', () => {
 
         expect(mockClient.getSession).toHaveBeenCalled();
         expect(adapter.address).toBe(TEST_ADDRESSES.MAINNET);
-        expect((adapter as any).scope).toBe(TronScope.MAINNET);
+        expect((adapter as any).scope).toBe(Scope.MAINNET);
       });
 
       it('should not set address if no accounts in scope', async () => {
@@ -327,7 +348,7 @@ describe('MetaMaskAdapter', () => {
       it('should prioritize mainnet scope', () => {
         (adapter as any).updateSession(TEST_SESSIONS.MULTI_SCOPE);
 
-        expect((adapter as any).scope).toBe(TronScope.MAINNET);
+        expect((adapter as any).scope).toBe(Scope.MAINNET);
         expect(adapter.address).toBe(TEST_ADDRESSES.MAINNET);
       });
 
@@ -337,7 +358,7 @@ describe('MetaMaskAdapter', () => {
 
         (adapter as any).updateSession(session, selectedAddress);
 
-        expect((adapter as any).scope).toBe(TronScope.MAINNET);
+        expect((adapter as any).scope).toBe(Scope.MAINNET);
         expect(adapter.address).toBe(TEST_ADDRESSES.MAINNET);
       });
 
@@ -352,7 +373,7 @@ describe('MetaMaskAdapter', () => {
 
         (adapter as any).updateSession(session);
 
-        expect((adapter as any).scope).toBe(TronScope.NILE);
+        expect((adapter as any).scope).toBe(Scope.NILE);
         expect(adapter.address).toBe(TEST_ADDRESSES.NILE);
       });
     });
