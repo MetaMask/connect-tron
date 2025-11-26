@@ -682,8 +682,8 @@ __metadata:
 
 "@metamask/multichain-api-client@file:/Users/edouard/Code/metamask-connect/multichain/multichain-api-client::locator=%40metamask%2Fconnect-tron%40workspace%3A.":
   version: 0.8.1
-  resolution: "@metamask/multichain-api-client@file:/Users/edouard/Code/metamask-connect/multichain/multichain-api-client#/Users/edouard/Code/metamask-connect/multichain/multichain-api-client::hash=b56ab1&locator=%40metamask%2Fconnect-tron%40workspace%3A."
-  checksum: 10/850e7f1dfa4507d47c3b4623f21a2791732c098a0865116c444aa499f17c9566c58683080f2d9383125a73eb715f038b094ebcbdcba921abb7f2aa7405c10803
+  resolution: "@metamask/multichain-api-client@file:/Users/edouard/Code/metamask-connect/multichain/multichain-api-client#/Users/edouard/Code/metamask-connect/multichain/multichain-api-client::hash=ac80e6&locator=%40metamask%2Fconnect-tron%40workspace%3A."
+  checksum: 10/f89714600875f9b6498088554ac65197ede4c097bc9937050679910f783ca36c5e6604a52032ed3de9c8f39d162fc7e176d7857f656d950ded5b8371d4b6f813
   languageName: node
   linkType: hard
 

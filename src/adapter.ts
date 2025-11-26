@@ -4,6 +4,7 @@ import {
   getDefaultTransport,
   getMultichainClient,
 } from '@metamask/multichain-api-client';
+import type { TronAddress } from '@metamask/multichain-api-client/dist/types/scopes/tron.types.cjs';
 import {
   Adapter,
   AdapterState,
@@ -15,6 +16,7 @@ import {
   isInBrowser,
 } from '@tronweb3/tronwallet-abstract-adapter';
 import type { AdapterName, Network, SignedTransaction, Transaction } from '@tronweb3/tronwallet-abstract-adapter';
+import tronweb from 'tronweb';
 import { metamaskIcon } from './icon';
 import { Scope } from './types';
 import {
@@ -131,37 +133,6 @@ export class MetaMaskAdapter extends Adapter {
   }
 
   /**
-   * Signs a transaction using the MetaMask wallet.
-   * @param transaction - The transaction to sign.
-   * @param privateKey - Optional private key (not recommended for production).
-   * @returns A promise that resolves to the signed transaction.
-   */
-  async signTransaction(transaction: Transaction, privateKey?: string): Promise<SignedTransaction> {
-    console.log('MetaMaskAdapter.signTransaction called', { transaction, privateKey });
-    try {
-      if (!this._scope) {
-        throw new WalletDisconnectedError('Wallet not connected');
-      }
-      const result = await this.client.invokeMethod({
-        scope: this._scope,
-        request: {
-          method: 'signTransaction',
-          params: { transaction, privateKey },
-        },
-      });
-      return result.signedTransaction;
-    } catch (error: any) {
-      if (error instanceof Error || (typeof error === 'object' && error.message)) {
-        throw new WalletSignTransactionError(error.message, error);
-      }
-      if (typeof error === 'string') {
-        throw new WalletSignTransactionError(error, new Error(error));
-      }
-      throw new WalletSignTransactionError('Unknown error', error);
-    }
-  }
-
-  /**
    * Disconnects from the MetaMask wallet.
    * @returns A promise that resolves when disconnected.
    */
@@ -178,6 +149,44 @@ export class MetaMaskAdapter extends Adapter {
   }
 
   /**
+   * Signs a transaction using the MetaMask wallet.
+   * @param transaction - The transaction to sign.
+   * @param privateKey - Optional private key (not recommended for production).
+   * @returns A promise that resolves to the signed transaction.
+   */
+  async signTransaction(transaction: Transaction, privateKey?: string): Promise<SignedTransaction> {
+    console.log('MetaMaskAdapter.signTransaction called', { transaction, privateKey });
+    try {
+      if (!this._scope) {
+        throw new WalletDisconnectedError('Wallet not connected');
+      }
+
+      const txPb = tronweb.utils.transaction.txJsonToPb(transaction);
+      const base64Transaction = Buffer.from(txPb.serializeBinary()).toString('base64');
+      const result = await this.client.invokeMethod({
+        scope: this._scope,
+        request: {
+          method: 'signTransaction',
+          params: { transaction: base64Transaction, scope: this._scope, address: this._address! as TronAddress },
+        },
+      });
+
+      return {
+        ...transaction,
+        signature: [result.signature],
+      };
+    } catch (error: any) {
+      if (error instanceof Error || (typeof error === 'object' && error.message)) {
+        throw new WalletSignTransactionError(error.message, error);
+      }
+      if (typeof error === 'string') {
+        throw new WalletSignTransactionError(error, new Error(error));
+      }
+      throw new WalletSignTransactionError('Unknown error', error);
+    }
+  }
+
+  /**
    * Signs a message using the MetaMask wallet.
    * @param message - The message to sign.
    * @param privateKey - Optional private key (not recommended for production).
@@ -189,11 +198,13 @@ export class MetaMaskAdapter extends Adapter {
       if (!this._scope) {
         throw new WalletDisconnectedError('Wallet not connected');
       }
+
+      const base64Message = Buffer.from(message).toString('base64');
       const result = await this.client.invokeMethod({
         scope: this._scope,
         request: {
           method: 'signMessage',
-          params: { message, privateKey },
+          params: { message: base64Message, address: this._address! as TronAddress },
         },
       });
       return result.signature;
