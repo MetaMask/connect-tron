@@ -7,8 +7,10 @@ import {
 import {
   Adapter,
   AdapterState,
+  NetworkType,
   WalletConnectionError,
   WalletDisconnectedError,
+  WalletGetNetworkError,
   WalletReadyState,
   WalletSignMessageError,
   WalletSignTransactionError,
@@ -16,14 +18,8 @@ import {
 } from '@tronweb3/tronwallet-abstract-adapter';
 import type { AdapterName, Network, SignedTransaction, Transaction } from '@tronweb3/tronwallet-abstract-adapter';
 import { metamaskIcon } from './icon';
-import { TronScope } from './types';
-import {
-  chainIdToScope,
-  getAddressFromCaipAccountId,
-  getNetworkFromScope,
-  isAccountChangedEvent,
-  scopeToChainId,
-} from './utils';
+import { Scope } from './types';
+import { chainIdToScope, getAddressFromCaipAccountId, isAccountChangedEvent, scopeToChainId } from './utils';
 
 /**
  * The adapter name for MetaMask.
@@ -44,7 +40,7 @@ export class MetaMaskAdapter extends Adapter {
   private _address: string | null = null;
   private selectedAddressOnPageLoadPromise: Promise<string | undefined> | undefined;
   private removeAccountsChangedListener: (() => void) | undefined;
-  protected scope: TronScope | undefined;
+  protected scope: Scope | undefined;
   client: MultichainApiClient;
 
   /**
@@ -100,6 +96,9 @@ export class MetaMaskAdapter extends Adapter {
       if (this.connected || this.connecting) {
         return;
       }
+      if (this._readyState !== WalletReadyState.Found) {
+        throw new WalletConnectionError('Wallet not found or not ready');
+      }
       // await this.checkWallet(); // I think it's not needed
       this._connecting = true;
       try {
@@ -107,7 +106,7 @@ export class MetaMaskAdapter extends Adapter {
         await this.tryRestoringSession();
         // Otherwise create a session on Mainnet by default
         if (!this.address) {
-          await this.createSession(TronScope.MAINNET);
+          await this.createSession(Scope.MAINNET);
         }
         // In case user didn't select any Tron scope/account, return
         if (!this.address) {
@@ -137,7 +136,7 @@ export class MetaMaskAdapter extends Adapter {
     console.log('MetaMaskAdapter.signTransaction called', { transaction, privateKey });
     try {
       if (!this.scope) {
-        throw new WalletDisconnectedError();
+        throw new WalletDisconnectedError('Wallet not connected');
       }
       const result = await this.client.invokeMethod({
         scope: this.scope,
@@ -184,7 +183,7 @@ export class MetaMaskAdapter extends Adapter {
     console.log('MetaMaskAdapter.signMessage called', { message, privateKey });
     try {
       if (!this.scope) {
-        throw new WalletDisconnectedError();
+        throw new WalletDisconnectedError('Wallet not connected');
       }
       const result = await this.client.invokeMethod({
         scope: this.scope,
@@ -212,7 +211,7 @@ export class MetaMaskAdapter extends Adapter {
   async switchChain(chainId: string): Promise<void> {
     console.log('MetaMaskAdapter.switchChain called', { chainId });
     if (!this.scope) {
-      throw new WalletDisconnectedError();
+      throw new WalletDisconnectedError('Wallet not connected');
     }
 
     const newScope = chainIdToScope(chainId);
@@ -241,9 +240,36 @@ export class MetaMaskAdapter extends Adapter {
     console.log('MetaMaskAdapter.network called');
     try {
       if (this.state !== AdapterState.Connected || !this.scope) {
-        throw new WalletDisconnectedError();
+        throw new WalletDisconnectedError('Wallet not connected');
       }
-      return getNetworkFromScope(this.scope);
+      switch (this.scope) {
+        case Scope.MAINNET:
+          return {
+            networkType: NetworkType.Mainnet,
+            chainId: '0x2b6653dc',
+            fullNode: '',
+            solidityNode: '',
+            eventServer: '',
+          };
+        case Scope.SHASTA:
+          return {
+            networkType: NetworkType.Shasta,
+            chainId: '0x94a9059e',
+            fullNode: '',
+            solidityNode: '',
+            eventServer: '',
+          };
+        case Scope.NILE:
+          return {
+            networkType: NetworkType.Nile,
+            chainId: '0xcd8690dc',
+            fullNode: '',
+            solidityNode: '',
+            eventServer: '',
+          };
+        default:
+          throw new WalletGetNetworkError('Unknown scope');
+      }
     } catch (e: any) {
       this.emit('error', e);
       throw e;
@@ -308,13 +334,13 @@ export class MetaMaskAdapter extends Adapter {
    * @param scope - The TronScope to create the session for.
    * @param addresses - Optional list of addresses to include in the session.
    */
-  private async createSession(scope: TronScope, addresses?: string[]): Promise<void> {
+  private async createSession(scope: Scope, addresses?: string[]): Promise<void> {
     console.log('MetaMaskAdapter.createSession called', { scope, addresses });
     const session = await this.client.createSession({
       optionalScopes: {
         [scope]: {
           accounts: (addresses ? addresses.map((addr) => `${scope}:${addr}`) : []) as CaipAccountId[],
-          methods: ['signTransaction', 'signMessge'],
+          methods: ['signTransaction', 'signMessage'],
           notifications: ['accountsChanged', 'chainChanged'],
         },
       },
@@ -344,7 +370,7 @@ export class MetaMaskAdapter extends Adapter {
     // Get session scopes
     const sessionScopes = new Set(Object.keys(session?.sessionScopes ?? {}));
     // Find the first available scope in priority order: mainnet > nile > shasta
-    const scopePriorityOrder = [TronScope.MAINNET, TronScope.NILE, TronScope.SHASTA];
+    const scopePriorityOrder = [Scope.MAINNET, Scope.NILE, Scope.SHASTA];
     const scope = scopePriorityOrder.find((scope) => sessionScopes.has(scope));
     // If no scope is available, don't disconnect so that we can create/update a new session
     if (!scope) {

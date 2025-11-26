@@ -18,20 +18,8 @@ export type TronRpc = {
 /**
  * Enum of supported Tron network scopes in CAIP-2 format.
  */
-export enum TronScope {
-  MAINNET = 'tron:mainnet',
-  SHASTA = 'tron:shasta',
-  NILE = 'tron:nile',
-}
-
-/**
- * Type representing a Tron chain identifier.
- */
-export type TronChain = `${TronScope}`;
-/**
- * Interface representing a Tron account with address and scope.
- */
-export interface TronAccount {
-  address: string;
-  scope: TronScope;
+export enum Scope {
+  MAINNET = 'tron:0x2b6653dc',
+  SHASTA = 'tron:0x94a9059e',
+  NILE = 'tron:0xcd8690dc',
 }

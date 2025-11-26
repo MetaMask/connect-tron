@@ -1,5 +1,4 @@
-import { type Network, NetworkType, WalletGetNetworkError } from '@tronweb3/tronwallet-abstract-adapter';
-import { TronScope } from './types';
+import { Scope } from './types';
 
 /**
  * Converts a chain ID to its corresponding Tron scope.
@@ -7,14 +6,14 @@ import { TronScope } from './types';
  * @returns The corresponding TronScope.
  * @throws Error if the chain ID is unsupported.
  */
-export function chainIdToScope(chainId: string): TronScope {
+export function chainIdToScope(chainId: string): Scope {
   switch (chainId) {
     case '0x2b6653dc': // Tron mainnet
-      return TronScope.MAINNET;
+      return Scope.MAINNET;
     case '0xcd8690dc': // Tron nile testnet
-      return TronScope.NILE;
+      return Scope.NILE;
     case '0x94a9059e': // Tron shasta testnet
-      return TronScope.SHASTA;
+      return Scope.SHASTA;
     default:
       throw new Error(`Unsupported chainId: ${chainId}`);
   }
@@ -26,54 +25,16 @@ export function chainIdToScope(chainId: string): TronScope {
  * @returns The corresponding chain ID string.
  * @throws Error if the scope is unsupported.
  */
-export function scopeToChainId(scope: TronScope): string {
+export function scopeToChainId(scope: Scope): string {
   switch (scope) {
-    case TronScope.MAINNET:
+    case Scope.MAINNET:
       return '0x2b6653dc';
-    case TronScope.NILE:
+    case Scope.NILE:
       return '0xcd8690dc';
-    case TronScope.SHASTA:
+    case Scope.SHASTA:
       return '0x94a9059e';
     default:
       throw new Error(`Unsupported scope: ${scope}`);
-  }
-}
-
-/**
- * Maps a Tron scope to its corresponding network configuration.
- * @param scope - The TronScope.
- * @returns The corresponding Network object.
- * @throws WalletGetNetworkError if the scope is unknown.
- */
-export function getNetworkFromScope(scope: TronScope): Network {
-  console.log('MetaMaskAdapter.#getNetworkFromScope called', { scope });
-  switch (scope) {
-    case TronScope.MAINNET:
-      return {
-        networkType: NetworkType.Mainnet,
-        chainId: '0x2b6653dc',
-        fullNode: '',
-        solidityNode: '',
-        eventServer: '',
-      };
-    case TronScope.SHASTA:
-      return {
-        networkType: NetworkType.Shasta,
-        chainId: '0x94a9059e',
-        fullNode: '',
-        solidityNode: '',
-        eventServer: '',
-      };
-    case TronScope.NILE:
-      return {
-        networkType: NetworkType.Nile,
-        chainId: '0xcd8690dc',
-        fullNode: '',
-        solidityNode: '',
-        eventServer: '',
-      };
-    default:
-      throw new WalletGetNetworkError('Unknown scope');
   }
 }
 
@@ -91,6 +52,11 @@ export function getAddressFromCaipAccountId(caipAccountId: string): string {
   return address;
 }
 
+/**
+ * Checks if the given data represents an accountsChanged event.
+ * @param data - The event data.
+ * @returns True if it's an accountsChanged event, false otherwise.
+ */
 export function isAccountChangedEvent(data: any): boolean {
   return data?.method === 'accountsChanged';
 }
