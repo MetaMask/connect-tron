@@ -14,7 +14,6 @@ import {
   WalletReadyState,
   WalletSignMessageError,
   WalletSignTransactionError,
-  isInBrowser,
 } from '@tronweb3/tronwallet-abstract-adapter';
 import type { AdapterName, Network, SignedTransaction, Transaction } from '@tronweb3/tronwallet-abstract-adapter';
 import tronweb from 'tronweb';
@@ -41,74 +40,47 @@ export class MetaMaskAdapter extends Adapter {
   url = 'https://metamask.io';
   icon = metamaskIcon;
 
-  private _readyState: WalletReadyState = WalletReadyState.Loading;
+  private _readyState: WalletReadyState = WalletReadyState.Found; // Assume found until proven otherwise. Fixex the reconnect issue on page reload.
   private _state: AdapterState = AdapterState.Disconnect; // So the library will connect once the user selects the wallet (Avoid 2 click)
   private _connecting = false;
   private _switchingChain = false;
   private _address: string | null = null;
   private _scope: Scope | undefined;
-  private selectedAddressOnPageLoadPromise: Promise<string | undefined> | undefined;
-  private removeAccountsChangedListener: (() => void) | undefined;
-  private transport: Transport;
-  private client: MultichainApiClient;
+  private _selectedAddressOnPageLoadPromise: Promise<string | undefined> | undefined;
+  private _checkWalletPromise: Promise<boolean> | undefined;
+  private _removeAccountsChangedListener: (() => void) | undefined;
+  private _transport: Transport;
+  private _client: MultichainApiClient;
 
   /**
    * Creates an instance of MetaMaskAdapter.
    * @param config - Configuration options for the adapter.
    */
   constructor() {
-    console.log('MetaMaskAdapter.constructor called');
     super();
-    this.transport = getDefaultTransport();
-    this.client = getMultichainClient({ transport: this.transport });
-    this.setAddress(null);
-    this.selectedAddressOnPageLoadPromise = this.getInitialSelectedAddress();
-
-    if (!isInBrowser()) {
-      this._readyState = WalletReadyState.NotFound;
-      this.setState(AdapterState.NotFound);
-      return;
-    }
-
-    void this.initializeWallet();
-  }
-
-  /**
-   * Initializes the wallet with retry mechanism.
-   * Retries up to 10 times.
-   */
-  private async initializeWallet(attempt = 1, maxAttempts = 10): Promise<void> {
-    const isConnected = await this.checkWallet();
-
-    if (!isConnected && attempt < maxAttempts) {
-      const delay = (this.transport.warmupTimeout ?? 200) * attempt;
-      setTimeout(async () => {
-        await this.initializeWallet(attempt + 1, maxAttempts);
-      }, delay);
-    }
+    this._transport = getDefaultTransport();
+    this._client = getMultichainClient({ transport: this._transport });
+    this._checkWalletPromise = this.checkWallet();
+    this._selectedAddressOnPageLoadPromise = this.getInitialSelectedAddress();
   }
 
   /** Gets the current connected address. */
   get address() {
-    console.log('MetaMaskAdapter.address getter called');
     return this._address;
   }
 
   /** Gets the current state of the adapter. */
   get state() {
-    console.log('MetaMaskAdapter.state getter called');
     return this._state;
   }
 
   /** Gets the ready state of the wallet. */
   get readyState() {
-    console.log('MetaMaskAdapter.readyState getter called');
     return this._readyState;
   }
 
   /** Gets whether the adapter is currently connecting. */
   get connecting() {
-    console.log('MetaMaskAdapter.connecting getter called');
     return this._connecting;
   }
 
@@ -117,7 +89,6 @@ export class MetaMaskAdapter extends Adapter {
    * @returns A promise that resolves when connected.
    */
   async connect(): Promise<void> {
-    console.log('MetaMaskAdapter.connect called');
     try {
       if (this.connected || this.connecting) {
         return;
@@ -125,7 +96,10 @@ export class MetaMaskAdapter extends Adapter {
       if (this._readyState !== WalletReadyState.Found) {
         throw new WalletConnectionError('Wallet not found or not ready');
       }
-      await this.checkWallet();
+      const walletReady = await this._checkWalletPromise!;
+      if (!walletReady) {
+        throw new WalletConnectionError('Wallet not found after initialization');
+      }
       this._connecting = true;
       try {
         // Try restoring session
@@ -157,7 +131,6 @@ export class MetaMaskAdapter extends Adapter {
    * @returns A promise that resolves when disconnected.
    */
   async disconnect(): Promise<void> {
-    console.log('MetaMaskAdapter.disconnect called');
     this.stopAccountsChangedListener();
     if (this.state !== AdapterState.Connected) {
       return;
@@ -174,8 +147,7 @@ export class MetaMaskAdapter extends Adapter {
    * @param privateKey - Optional private key (not recommended for production).
    * @returns A promise that resolves to the signed transaction.
    */
-  async signTransaction(transaction: Transaction, privateKey?: string): Promise<SignedTransaction> {
-    console.log('MetaMaskAdapter.signTransaction called', { transaction, privateKey });
+  async signTransaction(transaction: Transaction, _?: string): Promise<SignedTransaction> {
     try {
       if (!this._scope) {
         throw new WalletDisconnectedError('Wallet not connected');
@@ -183,7 +155,7 @@ export class MetaMaskAdapter extends Adapter {
 
       const txPb = tronweb.utils.transaction.txJsonToPb(transaction);
       const base64Transaction = Buffer.from(txPb.serializeBinary()).toString('base64');
-      const result = await this.client.invokeMethod({
+      const result = await this._client.invokeMethod({
         scope: this._scope,
         request: {
           method: 'signTransaction',
@@ -212,15 +184,14 @@ export class MetaMaskAdapter extends Adapter {
    * @param privateKey - Optional private key (not recommended for production).
    * @returns A promise that resolves to the signature.
    */
-  async signMessage(message: string, privateKey?: string): Promise<string> {
-    console.log('MetaMaskAdapter.signMessage called', { message, privateKey });
+  async signMessage(message: string, _?: string): Promise<string> {
     try {
       if (!this._scope) {
         throw new WalletDisconnectedError('Wallet not connected');
       }
 
       const base64Message = Buffer.from(message).toString('base64');
-      const result = await this.client.invokeMethod({
+      const result = await this._client.invokeMethod({
         scope: this._scope,
         request: {
           method: 'signMessage',
@@ -247,7 +218,6 @@ export class MetaMaskAdapter extends Adapter {
    * @param chainId - The chain ID to switch to.
    */
   async switchChain(chainId: string): Promise<void> {
-    console.log('MetaMaskAdapter.switchChain called', { chainId });
     if (this._switchingChain) {
       return;
     }
@@ -263,12 +233,12 @@ export class MetaMaskAdapter extends Adapter {
       return;
     }
 
-    let session = await this.client.getSession();
+    let session = await this._client.getSession();
     let isChainInSession = session?.sessionScopes[newScope]?.accounts?.includes(`${newScope}:${this._address}`);
     if (!isChainInSession) {
       // Create session for the new scope
       await this.createSession(newScope, this.address ? [this.address] : undefined);
-      session = await this.client.getSession();
+      session = await this._client.getSession();
       isChainInSession = session?.sessionScopes[newScope]?.accounts?.includes(`${newScope}:${this._address}`);
       if (!isChainInSession) {
         this._switchingChain = false;
@@ -287,7 +257,6 @@ export class MetaMaskAdapter extends Adapter {
    * @returns {Network} Current network information.
    */
   async network(): Promise<Network> {
-    console.log('MetaMaskAdapter.network called');
     try {
       if (this.state !== AdapterState.Connected || !this._scope) {
         throw new WalletDisconnectedError('Wallet not connected');
@@ -314,7 +283,6 @@ export class MetaMaskAdapter extends Adapter {
    * @returns If any, the initial selected address.
    */
   protected getInitialSelectedAddress(): Promise<string | undefined> {
-    console.log('MetaMaskAdapter.getInitialSelectedAddress called');
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         resolve(undefined);
@@ -335,32 +303,49 @@ export class MetaMaskAdapter extends Adapter {
 
   /**
    * Checks if the MetaMask wallet is available in the browser.
+   * By default, the _readyState is set to Found to avoid issues on page reloads.
+   * But if the wallet is not actually available, we need to update the _readyState accordingly.
+   * Average time for transport to be connected is around 50-300ms.
+   * Will retry up to maxAttempts times with a 10ms delay between attempts.
    * @returns A promise that resolves to true if the wallet is found.
    */
-  private async checkWallet(): Promise<boolean> {
-    console.log('MetaMaskAdapter.checkWallet called');
-    const isConnected = await this.transport.isConnected();
-    this._readyState = isConnected ? WalletReadyState.Found : WalletReadyState.NotFound;
-    this.emit('readyStateChanged', this.readyState);
-    return isConnected;
+  private async checkWallet(attempt = 1, maxAttempts = 100): Promise<boolean> {
+    const isConnected = await this._transport.isConnected();
+
+    if (isConnected) {
+      this._readyState = WalletReadyState.Found;
+      this.emit('readyStateChanged', this.readyState);
+
+      return true;
+    }
+
+    if (attempt >= maxAttempts) {
+      this._readyState = WalletReadyState.NotFound;
+      this.emit('readyStateChanged', this.readyState);
+
+      return false;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, this._transport.warmupTimeout ?? 100));
+    return this.checkWallet(attempt + 1, maxAttempts);
   }
 
   /**
    * Tries to restore an existing session.
+   * @returns A promise that resolves when the session is restored or not.
    */
   private async tryRestoringSession(): Promise<void> {
-    console.log('MetaMaskAdapter.tryRestoringSession called');
     try {
-      const existingSession = await this.client.getSession();
+      const existingSession = await this._client.getSession();
       if (!existingSession) {
         return;
       }
       // Get the address from accountChanged emitted on page load, if any
-      const address = await this.selectedAddressOnPageLoadPromise;
+      const address = await this._selectedAddressOnPageLoadPromise;
       const scope = this.restoreScope();
       this.updateSession(existingSession, scope, address);
     } catch (error) {
-      console.warn('Error restoring session', error);
+      console.warn(`Error restoring session`, error);
     }
   }
 
@@ -370,8 +355,7 @@ export class MetaMaskAdapter extends Adapter {
    * @param addresses - Optional list of addresses to include in the session.
    */
   private async createSession(scope: Scope, addresses?: string[]): Promise<void> {
-    console.log('MetaMaskAdapter.createSession called', { scope, addresses });
-    const session = await this.client.createSession({
+    const session = await this._client.createSession({
       optionalScopes: {
         [scope]: {
           accounts: (addresses ? addresses.map((addr) => `${scope}:${addr}`) : []) as CaipAccountId[],
@@ -401,7 +385,6 @@ export class MetaMaskAdapter extends Adapter {
    * @param selectedAddress - The address that was selected by the user, if any
    */
   private updateSession(session: any, selectedScope?: Scope, selectedAddress?: string) {
-    console.log('MetaMaskAdapter.updateSession called', { session, selectedScope, selectedAddress });
     // Get session scopes
     const sessionScopes = new Set(Object.keys(session?.sessionScopes ?? {}));
 
@@ -445,8 +428,7 @@ export class MetaMaskAdapter extends Adapter {
    * @param handler Optional custom handler for the event.
    */
   private startAccountsChangedListener(handler?: (data: any) => void) {
-    console.log('MetaMaskAdapter.startAccountsChangedListener called');
-    this.removeAccountsChangedListener = this.client.onNotification(
+    this._removeAccountsChangedListener = this._client.onNotification(
       handler ?? this.handleAccountsChangedEvent.bind(this),
     );
   }
@@ -455,9 +437,8 @@ export class MetaMaskAdapter extends Adapter {
    * Stops listening to the accountsChanged event.
    */
   private stopAccountsChangedListener() {
-    console.log('MetaMaskAdapter.stopAccountsChangedListener called');
-    this.removeAccountsChangedListener?.();
-    this.removeAccountsChangedListener = undefined;
+    this._removeAccountsChangedListener?.();
+    this._removeAccountsChangedListener = undefined;
   }
 
   /**
@@ -465,7 +446,6 @@ export class MetaMaskAdapter extends Adapter {
    * @param data - The event data
    */
   private async handleAccountsChangedEvent(data: any) {
-    console.log('MetaMaskAdapter.handleAccountsChangedEvent called', { data });
     if (!isAccountChangedEvent(data)) {
       return;
     }
@@ -475,7 +455,7 @@ export class MetaMaskAdapter extends Adapter {
       await this.disconnect();
       return;
     }
-    const session = await this.client.getSession();
+    const session = await this._client.getSession();
     this.updateSession(session, this._scope, addressToSelect);
     // Emit accountsChanged if address changed
     if (this._address !== addressToSelect) {
@@ -488,7 +468,6 @@ export class MetaMaskAdapter extends Adapter {
    * @param address - The address to set, or null if disconnected.
    */
   private setAddress(address: string | null) {
-    console.log('MetaMaskAdapter.setAddress called', { address });
     this._address = address;
   }
 
@@ -497,7 +476,6 @@ export class MetaMaskAdapter extends Adapter {
    * @param state - The new adapter state.
    */
   private setState(state: AdapterState) {
-    console.log('MetaMaskAdapter.setState called', { state });
     const preState = this.state;
     if (state !== preState) {
       this._state = state;

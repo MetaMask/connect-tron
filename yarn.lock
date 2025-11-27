@@ -672,11 +672,14 @@ __metadata:
     "@yarnpkg/types": "npm:^4.0.0-rc.52"
     depcheck: "npm:^1.4.3"
     prettier: "npm:^3.5.3"
+    tronweb: "npm:^6.1.0"
     ts-node: "npm:^10.7.0"
     typedoc: "npm:^0.26.11"
     typescript: "npm:~5.7.3"
     vite: "npm:^6.2.4"
     vitest: "npm:^3.0.7"
+  peerDependencies:
+    tronweb: ^6.1.0
   languageName: unknown
   linkType: soft
 
@@ -4695,7 +4698,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tronweb@npm:6":
+"tronweb@npm:6, tronweb@npm:^6.1.0":
   version: 6.1.0
   resolution: "tronweb@npm:6.1.0"
   dependencies:
