@@ -113,6 +113,10 @@ export class MetaMaskAdapter extends Adapter {
           return;
         }
         this.startAccountsChangedListener();
+
+        // @TODO TO Remove: temporary delay to ensure MetaMask is ready before receiving a switchChain call right after connect
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+
         this.setState(AdapterState.Connected);
         this.emit('connect', this.address);
       } catch (error: any) {
