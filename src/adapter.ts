@@ -69,9 +69,22 @@ export class MetaMaskAdapter extends Adapter {
       return;
     }
 
-    setTimeout(async () => {
-      await this.checkWallet();
-    }, this.transport.warmupTimeout);
+    void this.initializeWallet();
+  }
+
+  /**
+   * Initializes the wallet with retry mechanism.
+   * Retries up to 10 times.
+   */
+  private async initializeWallet(attempt = 1, maxAttempts = 10): Promise<void> {
+    const isConnected = await this.checkWallet();
+
+    if (!isConnected && attempt < maxAttempts) {
+      const delay = (this.transport.warmupTimeout ?? 200) * attempt;
+      setTimeout(async () => {
+        await this.initializeWallet(attempt + 1, maxAttempts);
+      }, delay);
+    }
   }
 
   /** Gets the current connected address. */
