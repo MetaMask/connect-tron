@@ -44,6 +44,7 @@ export class MetaMaskAdapter extends Adapter {
   private _readyState: WalletReadyState = WalletReadyState.Loading;
   private _state: AdapterState = AdapterState.Disconnect; // So the library will connect once the user selects the wallet (Avoid 2 click)
   private _connecting = false;
+  private _switchingChain = false;
   private _address: string | null = null;
   private _scope: Scope | undefined;
   private selectedAddressOnPageLoadPromise: Promise<string | undefined> | undefined;
@@ -240,33 +241,45 @@ export class MetaMaskAdapter extends Adapter {
 
   /**
    * Switches the chain for the MetaMask wallet.
+   * During the initial connection process by TronWallet, this method can be called multiple times in parallel.
+   * And if we call the createSession method multiple times in parallel, it fails.
+   * That's why we added a _switchingChain flag to avoid multiple simultaneous calls.
    * @param chainId - The chain ID to switch to.
    */
   async switchChain(chainId: string): Promise<void> {
     console.log('MetaMaskAdapter.switchChain called', { chainId });
+    if (this._switchingChain) {
+      return;
+    }
+    this._switchingChain = true;
     if (!this._scope) {
+      this._switchingChain = false;
       throw new WalletDisconnectedError('Wallet not connected');
     }
 
     const newScope = chainIdToScope(chainId);
     if (newScope === this._scope) {
+      this._switchingChain = false;
       return;
     }
 
     let session = await this.client.getSession();
-    const sessionAccounts = session?.sessionScopes[newScope]?.accounts;
-    if (sessionAccounts?.includes(`${newScope}:${this._address}`)) {
-      this.setScope(newScope);
-    } else {
+    let isChainInSession = session?.sessionScopes[newScope]?.accounts?.includes(`${newScope}:${this._address}`);
+    if (!isChainInSession) {
       // Create session for the new scope
       await this.createSession(newScope, this.address ? [this.address] : undefined);
       session = await this.client.getSession();
-      const sessionAccounts = session?.sessionScopes[newScope]?.accounts;
-      if (!sessionAccounts?.includes(`${newScope}:${this._address}`)) {
+      isChainInSession = session?.sessionScopes[newScope]?.accounts?.includes(`${newScope}:${this._address}`);
+      if (!isChainInSession) {
+        this._switchingChain = false;
         throw new WalletConnectionError('Failed to switch chain');
       }
-      this.setScope(newScope);
     }
+
+    this.setScope(newScope);
+    const newChainId = scopeToChainId(this._scope);
+    this.emit('chainChanged', { chainId: newChainId });
+    this._switchingChain = false;
   }
 
   /**
@@ -305,7 +318,7 @@ export class MetaMaskAdapter extends Adapter {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         resolve(undefined);
-      }, 2000);
+      }, 200);
       const handleAccountChange = (data: any) => {
         if (isAccountChangedEvent(data)) {
           const address = data?.params?.notification?.params?.[0];
@@ -504,8 +517,8 @@ export class MetaMaskAdapter extends Adapter {
       return;
     }
 
-    const newChainId = scopeToChainId(this._scope);
-    this.emit('chainChanged', { chainId: newChainId });
+    // const newChainId = scopeToChainId(this._scope);
+    // this.emit('chainChanged', { chainId: newChainId });
   }
 
   /**

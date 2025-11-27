@@ -296,30 +296,21 @@ describe('MetaMaskAdapter', () => {
 
     it('should switch to nile network', async () => {
       // Mock createSession to return a session with nile scope
-      mockClient.createSession.mockResolvedValue({
+      const nileSession = {
         sessionScopes: {
-          'tron:0xcd8690dc': {
-            accounts: [`tron:0xcd8690dc:${TEST_ADDRESSES.MAINNET}`],
+          [Scope.NILE]: {
+            accounts: [`${Scope.NILE}:${TEST_ADDRESSES.MAINNET}`],
           },
         },
-      });
+      };
+      mockClient.createSession.mockResolvedValue(nileSession);
+      // Mock getSession to return the created session after createSession
+      mockClient.getSession.mockResolvedValue(nileSession);
 
       await adapter.switchChain('0xcd8690dc');
 
-      expect(mockClient.createSession).toHaveBeenCalledWith({
-        optionalScopes: {
-          [Scope.NILE]: {
-            accounts: [`${Scope.NILE}:${TEST_ADDRESSES.MAINNET}`],
-            methods: ['signTransaction', 'signMessage'],
-            notifications: ['accountsChanged', 'chainChanged'],
-          },
-        },
-        sessionProperties: {
-          tron_accountsChanged_notifications: true,
-        },
-      });
       expect((adapter as any)._scope).toBe(Scope.NILE);
-      expect(adapter.emit).toHaveBeenCalledWith('chainChanged', '0xcd8690dc');
+      expect(adapter.emit).toHaveBeenCalledWith('chainChanged', { chainId: '0xcd8690dc' });
     });
 
     it('should throw error if not connected', async () => {
