@@ -16,6 +16,7 @@ export const mockTransport = {
   removeAllListeners: vi.fn(),
   connect: vi.fn().mockResolvedValue(undefined),
   disconnect: vi.fn().mockResolvedValue(undefined),
+  isConnected: vi.fn().mockResolvedValue(true),
   // Add any other methods that might be called
   addEventListener: vi.fn(),
   removeEventListener: vi.fn(),

@@ -1,6 +1,7 @@
 import {
   type CaipAccountId,
   type MultichainApiClient,
+  type Transport,
   getDefaultTransport,
   getMultichainClient,
 } from '@metamask/multichain-api-client';
@@ -47,7 +48,8 @@ export class MetaMaskAdapter extends Adapter {
   private _scope: Scope | undefined;
   private selectedAddressOnPageLoadPromise: Promise<string | undefined> | undefined;
   private removeAccountsChangedListener: (() => void) | undefined;
-  client: MultichainApiClient;
+  private transport: Transport;
+  private client: MultichainApiClient;
 
   /**
    * Creates an instance of MetaMaskAdapter.
@@ -56,7 +58,8 @@ export class MetaMaskAdapter extends Adapter {
   constructor() {
     console.log('MetaMaskAdapter.constructor called');
     super();
-    this.client = getMultichainClient({ transport: getDefaultTransport() });
+    this.transport = getDefaultTransport();
+    this.client = getMultichainClient({ transport: this.transport });
     this.setAddress(null);
     this.selectedAddressOnPageLoadPromise = this.getInitialSelectedAddress();
 
@@ -65,7 +68,10 @@ export class MetaMaskAdapter extends Adapter {
       this.setState(AdapterState.NotFound);
       return;
     }
-    this.checkWallet();
+
+    setTimeout(async () => {
+      await this.checkWallet();
+    }, this.transport.warmupTimeout);
   }
 
   /** Gets the current connected address. */
@@ -105,7 +111,7 @@ export class MetaMaskAdapter extends Adapter {
       if (this._readyState !== WalletReadyState.Found) {
         throw new WalletConnectionError('Wallet not found or not ready');
       }
-      // await this.checkWallet(); // I think it's not needed
+      await this.checkWallet();
       this._connecting = true;
       try {
         // Try restoring session
@@ -299,14 +305,15 @@ export class MetaMaskAdapter extends Adapter {
   }
 
   /**
-   * We assume the wallet is always available with MM Connect.
+   * Checks if the MetaMask wallet is available in the browser.
    * @returns A promise that resolves to true if the wallet is found.
    */
   private async checkWallet(): Promise<boolean> {
     console.log('MetaMaskAdapter.checkWallet called');
-    this._readyState = WalletReadyState.Found;
+    const isConnected = await this.transport.isConnected();
+    this._readyState = isConnected ? WalletReadyState.Found : WalletReadyState.NotFound;
     this.emit('readyStateChanged', this.readyState);
-    return true;
+    return isConnected;
   }
 
   /**
