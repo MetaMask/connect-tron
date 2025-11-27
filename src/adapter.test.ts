@@ -32,7 +32,18 @@ global.localStorage = {
   key: vi.fn(),
 } as any;
 
-// Mock the abstract adapter
+// Mock tronweb
+vi.mock('tronweb', () => ({
+  default: {
+    utils: {
+      transaction: {
+        txJsonToPb: vi.fn(() => ({
+          serializeBinary: vi.fn(() => Buffer.from('mocked binary data')),
+        })),
+      },
+    },
+  },
+}));
 vi.mock('@tronweb3/tronwallet-abstract-adapter', () => ({
   Adapter: class MockAdapter {
     constructor() {
@@ -100,12 +111,17 @@ describe('MetaMaskAdapter', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
 
     adapter = new MetaMaskAdapter();
+
+    // Avance les timers pour exécuter checkWallet
+    vi.advanceTimersByTime(200);
   });
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
   });
 
   describe('constructor', () => {
@@ -206,8 +222,8 @@ describe('MetaMaskAdapter', () => {
     });
 
     it('should sign transaction using multichain client', async () => {
-      const signedTx = { signature: '0x123' };
-      mockClient.invokeMethod.mockResolvedValue({ signedTransaction: signedTx });
+      const signature = '0x123';
+      mockClient.invokeMethod.mockResolvedValue({ signature });
 
       const result = await adapter.signTransaction(TEST_TRANSACTIONS.SIMPLE);
 
@@ -216,12 +232,15 @@ describe('MetaMaskAdapter', () => {
         request: {
           method: 'signTransaction',
           params: {
-            transaction: TEST_TRANSACTIONS.SIMPLE,
-            privateKey: undefined,
+            transaction: Buffer.from('mocked binary data').toString('base64'),
+            address: TEST_ADDRESSES.MAINNET,
           },
         },
       });
-      expect(result).toBe(signedTx);
+      expect(result).toEqual({
+        ...TEST_TRANSACTIONS.SIMPLE,
+        signature: [signature],
+      });
     });
 
     it('should throw error if not connected', async () => {
@@ -249,8 +268,8 @@ describe('MetaMaskAdapter', () => {
         request: {
           method: 'signMessage',
           params: {
-            message: TEST_MESSAGES.SIMPLE,
-            privateKey: undefined,
+            message: Buffer.from(TEST_MESSAGES.SIMPLE).toString('base64'),
+            address: TEST_ADDRESSES.MAINNET,
           },
         },
       });
@@ -442,6 +461,16 @@ describe('MetaMaskAdapter', () => {
   });
 
   describe('getInitialSelectedAddress', () => {
+    beforeEach(() => {
+      // Utiliser les vrais timers pour ces tests car ils dépendent de setTimeout
+      vi.useRealTimers();
+    });
+
+    afterEach(() => {
+      // Revenir aux fake timers après ces tests
+      vi.useFakeTimers();
+    });
+
     it('should return address from accountsChanged event within timeout', async () => {
       const mockRemoveListener = vi.fn();
       mockClient.onNotification.mockImplementation((callback) => {
