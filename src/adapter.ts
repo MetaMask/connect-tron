@@ -173,7 +173,7 @@ export class MetaMaskAdapter extends Adapter {
         scope: this._scope,
         request: {
           method: 'signTransaction',
-          params: { transaction: base64Transaction, scope: this._scope, address: this._address! as TronAddress },
+          params: { transaction: base64Transaction, address: this._address! as TronAddress },
         },
       });
 
