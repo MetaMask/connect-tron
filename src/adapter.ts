@@ -240,17 +240,20 @@ export class MetaMaskAdapter extends Adapter {
       return;
     }
 
-    const session = await this.client.getSession();
+    let session = await this.client.getSession();
     const sessionAccounts = session?.sessionScopes[newScope]?.accounts;
     if (sessionAccounts?.includes(`${newScope}:${this._address}`)) {
       this.setScope(newScope);
     } else {
       // Create session for the new scope
       await this.createSession(newScope, this.address ? [this.address] : undefined);
+      session = await this.client.getSession();
+      const sessionAccounts = session?.sessionScopes[newScope]?.accounts;
+      if (!sessionAccounts?.includes(`${newScope}:${this._address}`)) {
+        throw new WalletConnectionError('Failed to switch chain');
+      }
+      this.setScope(newScope);
     }
-
-    const newChainId = scopeToChainId(this._scope);
-    this.emit('chainChanged', newChainId);
   }
 
   /**
@@ -483,6 +486,13 @@ export class MetaMaskAdapter extends Adapter {
   private setScope(scope?: Scope) {
     localStorage.setItem('metamaskAdapterScope', scope ?? '');
     this._scope = scope;
+
+    if (!this._scope) {
+      return;
+    }
+
+    const newChainId = scopeToChainId(this._scope);
+    this.emit('chainChanged', { chainId: newChainId });
   }
 
   /**
