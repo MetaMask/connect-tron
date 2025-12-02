@@ -16,7 +16,6 @@ import {
   WalletSignTransactionError,
 } from '@tronweb3/tronwallet-abstract-adapter';
 import type { AdapterName, Network, SignedTransaction, Transaction } from '@tronweb3/tronwallet-abstract-adapter';
-import tronweb from 'tronweb';
 import { metamaskIcon } from './icon';
 import { Scope } from './types';
 import {
@@ -156,14 +155,22 @@ export class MetaMaskAdapter extends Adapter {
       if (!this._scope) {
         throw new WalletDisconnectedError('Wallet not connected');
       }
+      const contractType = transaction.raw_data.contract[0]?.type;
+      if (!contractType) {
+        throw new WalletSignTransactionError('Transaction contract type is required');
+      }
 
-      const txPb = tronweb.utils.transaction.txJsonToPb(transaction);
-      const base64Transaction = Buffer.from(txPb.serializeBinary()).toString('base64');
       const result = await this._client.invokeMethod({
         scope: this._scope,
         request: {
           method: 'signTransaction',
-          params: { transaction: base64Transaction, address: this._address! as TronAddress },
+          params: {
+            address: this._address! as TronAddress,
+            transaction: {
+              rawDataHex: transaction.raw_data_hex,
+              type: contractType,
+            },
+          },
         },
       });
 
