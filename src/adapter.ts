@@ -113,9 +113,6 @@ export class MetaMaskAdapter extends Adapter {
         }
         this.startAccountsChangedListener();
 
-        // @TODO TO Remove: temporary delay to ensure MetaMask is ready before receiving a switchChain call right after connect
-        await new Promise((resolve) => setTimeout(resolve, 5_000));
-
         this.setState(AdapterState.Connected);
         this.emit('connect', this.address);
       } catch (error: any) {
@@ -139,7 +136,7 @@ export class MetaMaskAdapter extends Adapter {
       return;
     }
     this.setAddress(null);
-    this.setScope(undefined);
+    this.setScope(undefined, false);
     this.setState(AdapterState.Disconnect);
     this.emit('disconnect');
   }
@@ -258,8 +255,6 @@ export class MetaMaskAdapter extends Adapter {
     }
 
     this.setScope(newScope);
-    const newChainId = scopeToChainId(this._scope);
-    this.emit('chainChanged', { chainId: newChainId });
     this._switchingChain = false;
   }
 
@@ -431,7 +426,7 @@ export class MetaMaskAdapter extends Adapter {
     }
     // Update the address and scope
     this.setAddress(addressToConnect);
-    this.setScope(scope);
+    this.setScope(scope, false);
   }
 
   /**
@@ -498,7 +493,10 @@ export class MetaMaskAdapter extends Adapter {
    * Sets the current scope.
    * @param scope - The new scope.
    */
-  private setScope(scope?: Scope) {
+  private setScope(scope?: Scope, emitChainChanged = true) {
+    if (this._scope === scope) {
+      return;
+    }
     localStorage.setItem('metamaskAdapterScope', scope ?? '');
     this._scope = scope;
 
@@ -506,8 +504,10 @@ export class MetaMaskAdapter extends Adapter {
       return;
     }
 
-    // const newChainId = scopeToChainId(this._scope);
-    // this.emit('chainChanged', { chainId: newChainId });
+    if (emitChainChanged) {
+      const newChainId = scopeToChainId(this._scope);
+      this.emit('chainChanged', { chainId: newChainId });
+    }
   }
 
   /**
