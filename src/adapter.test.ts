@@ -32,18 +32,6 @@ global.localStorage = {
   key: vi.fn(),
 } as any;
 
-// Mock tronweb
-vi.mock('tronweb', () => ({
-  default: {
-    utils: {
-      transaction: {
-        txJsonToPb: vi.fn(() => ({
-          serializeBinary: vi.fn(() => Buffer.from('mocked binary data')),
-        })),
-      },
-    },
-  },
-}));
 vi.mock('@tronweb3/tronwallet-abstract-adapter', () => ({
   Adapter: class MockAdapter {
     constructor() {
@@ -232,8 +220,11 @@ describe('MetaMaskAdapter', () => {
         request: {
           method: 'signTransaction',
           params: {
-            transaction: Buffer.from('mocked binary data').toString('base64'),
             address: TEST_ADDRESSES.MAINNET,
+            transaction: {
+              rawDataHex: TEST_TRANSACTIONS.SIMPLE.raw_data_hex,
+              type: 'TransferContract',
+            },
           },
         },
       });
