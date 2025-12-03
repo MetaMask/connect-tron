@@ -48,7 +48,7 @@
     "test:watch": "vitest --watch"
   },
   "dependencies": {
-    "@metamask/multichain-api-client": "file:/Users/edouard/Code/metamask-connect/multichain/multichain-api-client",
+    "@metamask/multichain-api-client": "^0.10.0",
     "@tronweb3/tronwallet-abstract-adapter": "^1.1.10"
   },
   "peerDependencies": {
