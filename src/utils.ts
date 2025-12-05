@@ -58,8 +58,8 @@ export function getAddressFromCaipAccountId(caipAccountId: string): string {
  * @param data - The event data.
  * @returns True if it's an accountsChanged event, false otherwise.
  */
-export function isAccountChangedEvent(data: any): boolean {
-  return data?.method === 'accountsChanged';
+export function isAccountChangedEvent(event: any): boolean {
+  return event?.method === 'wallet_notify' && event?.params?.notification?.method === 'metamask_accountsChanged';
 }
 
 /**

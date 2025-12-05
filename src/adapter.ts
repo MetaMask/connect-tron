@@ -1,3 +1,4 @@
+import { KnownSessionProperties } from '@metamask/chain-agnostic-permission';
 import {
   type CaipAccountId,
   type MultichainApiClient,
@@ -365,12 +366,12 @@ export class MetaMaskAdapter extends Adapter {
       optionalScopes: {
         [scope]: {
           accounts: (addresses ? addresses.map((addr) => `${scope}:${addr}`) : []) as CaipAccountId[],
-          methods: ['signTransaction', 'signMessage'],
-          notifications: ['accountsChanged', 'chainChanged'],
+          methods: [],
+          notifications: [],
         },
       },
       sessionProperties: {
-        tron_accountsChanged_notifications: true,
+        [KnownSessionProperties.TronAccountChangedNotifications]: true,
       },
     });
     this.updateSession(session);
@@ -452,28 +453,34 @@ export class MetaMaskAdapter extends Adapter {
    * @param data - The event data
    */
   private async handleAccountsChangedEvent(data: any) {
+    console.log('accountsChanged event received:', data);
     if (!isAccountChangedEvent(data)) {
       return;
     }
-    const addressToSelect = data?.params?.notification?.params?.[0];
-    if (!addressToSelect) {
+    const newAddressSelected = data?.params?.notification?.params?.[0];
+    if (!newAddressSelected) {
       // Disconnect if no address selected
       await this.disconnect();
       return;
     }
     const session = await this._client.getSession();
-    this.updateSession(session, this._scope, addressToSelect);
-    // Emit accountsChanged if address changed
-    if (this._address !== addressToSelect) {
-      this.emit('accountsChanged', addressToSelect, this._address || '');
-    }
+    this.updateSession(session, this._scope, newAddressSelected);
   }
 
   /**
    * Sets the current address.
+   * Emits an accountsChanged event if the address changes.
    * @param address - The address to set, or null if disconnected.
    */
   private setAddress(address: string | null) {
+    if (this._address === address) {
+      return;
+    }
+
+    if (address) {
+      this.emit('accountsChanged', address, this._address || '');
+    }
+
     this._address = address;
   }
 
