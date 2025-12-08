@@ -494,8 +494,7 @@ describe('MetaMaskAdapter', () => {
         return mockRemoveListener;
       });
 
-      const testAdapter = new MetaMaskAdapter();
-      const result = await (testAdapter as any).getInitialSelectedAddress();
+      const result = await (adapter as any).getInitialSelectedAddress();
 
       expect(result).toBe(TEST_ADDRESSES.MAINNET);
       expect(mockRemoveListener).toHaveBeenCalled();
