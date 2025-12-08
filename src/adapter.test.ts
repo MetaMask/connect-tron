@@ -103,7 +103,6 @@ describe('MetaMaskAdapter', () => {
 
     adapter = new MetaMaskAdapter();
 
-    // Avance les timers pour exécuter checkWallet
     vi.advanceTimersByTime(200);
   });
 
@@ -152,12 +151,12 @@ describe('MetaMaskAdapter', () => {
         optionalScopes: {
           [TEST_SCOPES.MAINNET]: {
             accounts: [],
-            methods: ['signTransaction', 'signMessage'],
-            notifications: ['accountsChanged', 'chainChanged'],
+            methods: [],
+            notifications: [],
           },
         },
         sessionProperties: {
-          tron_accountsChanged_notifications: true,
+          tron_accountChanged_notifications: true,
         },
       });
       expect(adapter.address).toBe(TEST_ADDRESSES.MAINNET);
@@ -421,15 +420,32 @@ describe('MetaMaskAdapter', () => {
     });
 
     describe('handleAccountsChangedEvent', () => {
-      beforeEach(() => {
-        mockClient.getSession.mockResolvedValue(TEST_SESSIONS.MULTI_SCOPE);
+      beforeEach(async () => {
+        mockClient.getSession.mockResolvedValue(TEST_SESSIONS.MAINNET_ONLY);
+        mockClient.onNotification.mockReturnValue(vi.fn());
+        await adapter.connect();
+        vi.clearAllMocks();
       });
 
       it('should update address when accounts changed', async () => {
+        // Mock getSession to return a session with the new address in the NILE scope
+        const sessionWithNile = {
+          sessionScopes: {
+            [TEST_SCOPES.MAINNET]: {
+              accounts: [`${TEST_SCOPES.MAINNET}:${TEST_ADDRESSES.MAINNET}`],
+            },
+            [TEST_SCOPES.NILE]: {
+              accounts: [`${TEST_SCOPES.NILE}:${TEST_ADDRESSES.NILE}`],
+            },
+          },
+        };
+        mockClient.getSession.mockResolvedValue(sessionWithNile);
+
         const eventData = {
-          method: 'accountsChanged',
+          method: 'wallet_notify',
           params: {
             notification: {
+              method: 'metamask_accountsChanged',
               params: [TEST_ADDRESSES.NILE],
             },
           },
@@ -453,12 +469,10 @@ describe('MetaMaskAdapter', () => {
 
   describe('getInitialSelectedAddress', () => {
     beforeEach(() => {
-      // Utiliser les vrais timers pour ces tests car ils dépendent de setTimeout
       vi.useRealTimers();
     });
 
     afterEach(() => {
-      // Revenir aux fake timers après ces tests
       vi.useFakeTimers();
     });
 
@@ -468,9 +482,10 @@ describe('MetaMaskAdapter', () => {
         // Simulate accountsChanged event
         setTimeout(() => {
           callback({
-            method: 'accountsChanged',
+            method: 'wallet_notify',
             params: {
               notification: {
+                method: 'metamask_accountsChanged',
                 params: [TEST_ADDRESSES.MAINNET],
               },
             },

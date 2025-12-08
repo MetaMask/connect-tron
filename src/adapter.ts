@@ -455,7 +455,6 @@ export class MetaMaskAdapter extends Adapter {
    * @param data - The event data
    */
   private async handleAccountsChangedEvent(data: any) {
-    console.log('accountsChanged event received:', data);
     if (!isAccountChangedEvent(data)) {
       return;
     }
