@@ -943,9 +943,9 @@ __metadata:
   linkType: hard
 
 "@metamask/multichain-api-client@npm:^0.10.0":
-  version: 0.10.0
-  resolution: "@metamask/multichain-api-client@npm:0.10.0"
-  checksum: 10/d85f3c26ab9be7edf6aef2ddbf84c362d091c48b60bcebf3a3891b3b84ab9211277ea39ec9f6d8f9e04c805e5410df16ccad736b31a683a7209ac26128070502
+  version: 0.10.1
+  resolution: "@metamask/multichain-api-client@npm:0.10.1"
+  checksum: 10/adedb90f433cd619eee54943197dc32eb30e461173e928ea698ec70bf8c6780d9ac0bb9b12a22a17f984170841c071d228aa49e6988d5060e8a30e99c433a8f5
   languageName: node
   linkType: hard
 
