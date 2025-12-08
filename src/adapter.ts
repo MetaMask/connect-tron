@@ -238,6 +238,8 @@ export class MetaMaskAdapter extends Adapter {
 
     const newScope = chainIdToScope(chainId);
     if (newScope === this._scope) {
+      // Still emit event to reconciliate divergent states between dapp and adapter
+      this.emit('chainChanged', { chainId });
       this._switchingChain = false;
       return;
     }
