@@ -52,9 +52,6 @@
     "@metamask/multichain-api-client": "^0.10.0",
     "@tronweb3/tronwallet-abstract-adapter": "^1.1.10"
   },
-  "peerDependencies": {
-    "tronweb": "^6.1.0"
-  },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.15.3",
     "@biomejs/biome": "^1.8.3",
@@ -68,7 +65,6 @@
     "@yarnpkg/types": "^4.0.0-rc.52",
     "depcheck": "^1.4.3",
     "prettier": "^3.5.3",
-    "tronweb": "^6.1.0",
     "ts-node": "^10.7.0",
     "typedoc": "^0.26.11",
     "typescript": "~5.7.3",
