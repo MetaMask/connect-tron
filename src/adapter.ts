@@ -96,7 +96,7 @@ export class MetaMaskAdapter extends Adapter {
       if (this._readyState !== WalletReadyState.Found) {
         throw new WalletConnectionError('Wallet not found or not ready');
       }
-      const walletReady = await this._checkWalletPromise!;
+      const walletReady = await this._checkWalletPromise;
       if (!walletReady) {
         throw new WalletConnectionError('Wallet not found after initialization');
       }
@@ -163,7 +163,7 @@ export class MetaMaskAdapter extends Adapter {
         request: {
           method: 'signTransaction',
           params: {
-            address: this._address! as TronAddress,
+            address: this._address as TronAddress,
             transaction: {
               rawDataHex: transaction.raw_data_hex,
               type: contractType,
@@ -204,7 +204,7 @@ export class MetaMaskAdapter extends Adapter {
         scope: this._scope,
         request: {
           method: 'signMessage',
-          params: { message: base64Message, address: this._address! as TronAddress },
+          params: { message: base64Message, address: this._address as TronAddress },
         },
       });
       return result.signature;
