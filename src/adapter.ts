@@ -398,7 +398,7 @@ export class MetaMaskAdapter extends Adapter {
       },
     });
 
-    // Wait for the accountChanged event to know which one to use, timeout after 200ms
+    // Wait for the accountChanged event to know which one to use, timeout after 2000ms
     const selectedAddress = await Promise.race([
       waitForAccountChangedPromise,
       new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 2000)),
