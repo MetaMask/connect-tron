@@ -1,5 +1,5 @@
 import type { RpcMethod } from '@metamask/multichain-api-client';
-import type { SignedTransaction, Transaction } from 'tronweb/lib/esm/types/Transaction';
+import type { SignedTransaction, Transaction } from '@tronweb3/tronwallet-abstract-adapter';
 
 /**
  * Defines the RPC methods and events for Tron blockchain interactions.
