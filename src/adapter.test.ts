@@ -96,6 +96,37 @@ import {
 
 describe('MetaMaskAdapter', () => {
   let adapter: MetaMaskAdapter;
+  let notificationHandler: ReturnType<typeof vi.fn>;
+
+  const setupNotificationHandler = () => {
+    notificationHandler = vi.fn();
+    mockClient.onNotification.mockImplementation((handler) => {
+      notificationHandler.mockImplementation(handler);
+    });
+  };
+
+  const emitAccountChange = (address: string) => {
+    notificationHandler({
+      params: {
+        notification: {
+          method: 'metamask_accountsChanged',
+          params: [address],
+        },
+      },
+    });
+  };
+
+  const connectAndSetAccount = async (_address = TEST_ADDRESSES.MAINNET) => {
+    setupNotificationHandler();
+
+    vi.useRealTimers();
+
+    const connectPromise = adapter.connect();
+
+    emitAccountChange(_address);
+
+    return connectPromise;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -103,7 +134,7 @@ describe('MetaMaskAdapter', () => {
 
     adapter = new MetaMaskAdapter();
 
-    vi.advanceTimersByTime(200);
+    vi.advanceTimersByTime(2000);
   });
 
   afterEach(() => {
@@ -145,7 +176,7 @@ describe('MetaMaskAdapter', () => {
       mockClient.createSession.mockResolvedValue(TEST_SESSIONS.MAINNET_ONLY);
       mockClient.onNotification.mockReturnValue(vi.fn());
 
-      await adapter.connect();
+      await connectAndSetAccount();
 
       expect(mockClient.createSession).toHaveBeenCalledWith({
         optionalScopes: {
