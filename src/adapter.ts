@@ -102,8 +102,6 @@ export class MetaMaskAdapter extends Adapter {
       }
       this._connecting = true;
       try {
-        // Verify the transport will be connected before trying to restore session or create a session
-        this.reconnectTransportIfNeeded();
         // Try restoring session
         await this.tryRestoringSession();
         // Otherwise create a session on Mainnet by default
@@ -134,8 +132,6 @@ export class MetaMaskAdapter extends Adapter {
    * @returns A promise that resolves when disconnected.
    */
   async disconnect(): Promise<void> {
-    await this._client.revokeSession({ scopes: [Scope.MAINNET, Scope.NILE, Scope.SHASTA] });
-
     this.stopAccountsChangedListener();
     if (this.state !== AdapterState.Connected) {
       return;
@@ -144,6 +140,8 @@ export class MetaMaskAdapter extends Adapter {
     this.setScope(undefined, false);
     this.setState(AdapterState.Disconnect);
     this.emit('disconnect');
+
+    await this._client.revokeSession({ scopes: [Scope.MAINNET, Scope.NILE, Scope.SHASTA] });
   }
 
   /**
@@ -557,16 +555,5 @@ export class MetaMaskAdapter extends Adapter {
   private restoreScope(): Scope | undefined {
     const scope = localStorage.getItem('metamaskAdapterScope');
     return scope ? (scope as Scope) : undefined;
-  }
-
-  /**
-   * Reconnects the transport if it is not connected.
-   * And recreates the client with the new transport.
-   */
-  private reconnectTransportIfNeeded() {
-    if (!this._transport.isConnected()) {
-      this._transport.connect();
-      this._client = getMultichainClient({ transport: this._transport });
-    }
   }
 }
