@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockClient: MockMultichainClient = {
   getSession: vi.fn(),
   createSession: vi.fn(),
+  revokeSession: vi.fn(),
   invokeMethod: vi.fn(),
   onNotification: vi.fn(),
 };
@@ -229,6 +230,7 @@ describe('MetaMaskAdapter', () => {
       expect((adapter as any)._scope).toBeUndefined();
       expect(adapter.state).toBe('Disconnect');
       expect(adapter.emit).toHaveBeenCalledWith('disconnect');
+      expect(mockClient.revokeSession).toHaveBeenCalledWith({ scopes: [Scope.MAINNET, Scope.NILE, Scope.SHASTA] });
     });
   });
 
