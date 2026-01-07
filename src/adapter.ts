@@ -132,10 +132,12 @@ export class MetaMaskAdapter extends Adapter {
    * @returns A promise that resolves when disconnected.
    */
   async disconnect(): Promise<void> {
-    this.stopAccountsChangedListener();
     if (this.state !== AdapterState.Connected) {
       return;
     }
+
+    this.stopAccountsChangedListener();
+
     this.setAddress(null);
     this.setScope(undefined, false);
     this.setState(AdapterState.Disconnect);
@@ -491,7 +493,7 @@ export class MetaMaskAdapter extends Adapter {
     const newAddressSelected = data?.params?.notification?.params?.[0];
     if (!newAddressSelected) {
       // Disconnect if no address selected
-      await this.disconnect();
+      // await this.disconnect();
       return;
     }
     const session = await this._client.getSession();
