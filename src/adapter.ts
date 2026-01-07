@@ -493,7 +493,7 @@ export class MetaMaskAdapter extends Adapter {
     const newAddressSelected = data?.params?.notification?.params?.[0];
     if (!newAddressSelected) {
       // Disconnect if no address selected
-      // await this.disconnect();
+      await this.disconnect();
       return;
     }
     const session = await this._client.getSession();
