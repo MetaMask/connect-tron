@@ -7,11 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0]
+
+### Added
+
+- Revoke session when disconnecting ([#19](https://github.com/MetaMask/connect-tron/pull/19))
+- Add documentation ([#12](https://github.com/MetaMask/connect-tron/pull/12))
+
+### Removed
+
+- Remove tronweb dependency ([#17](https://github.com/MetaMask/connect-tron/pull/17))
+
+### Fixed
+
+- Use separate listener for initially selected account ([#18](https://github.com/MetaMask/connect-tron/pull/18))
+
 ## [0.1.0]
 
 ### Changed
 
 - Initial release
 
-[Unreleased]: https://github.com/MetaMask/connect-tron/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/MetaMask/connect-tron/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/MetaMask/connect-tron/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MetaMask/connect-tron/releases/tag/v0.1.0
