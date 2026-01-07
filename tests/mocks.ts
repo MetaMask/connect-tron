@@ -4,6 +4,7 @@ import { vi } from 'vitest';
 export interface MockMultichainClient {
   getSession: ReturnType<typeof vi.fn>;
   createSession: ReturnType<typeof vi.fn>;
+  revokeSession: ReturnType<typeof vi.fn>;
   invokeMethod: ReturnType<typeof vi.fn>;
   onNotification: ReturnType<typeof vi.fn>;
   removeAllListeners?: ReturnType<typeof vi.fn>;
@@ -27,6 +28,7 @@ export const mockTransport = {
 export const createMockMultichainClient = (): MockMultichainClient => ({
   getSession: vi.fn().mockResolvedValue({}),
   createSession: vi.fn().mockResolvedValue({}),
+  revokeSession: vi.fn().mockResolvedValue(undefined),
   invokeMethod: vi.fn().mockResolvedValue({}),
   onNotification: vi.fn().mockReturnValue(vi.fn()), // Return a mock cleanup function
   removeAllListeners: vi.fn(),
