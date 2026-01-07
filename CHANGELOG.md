@@ -9,10 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0]
 
-### Fixed
-
-- Use separate listener for initially selected account ([#18](https://github.com/MetaMask/connect-tron/pull/18))
-
 ### Added
 
 - Revoke session when disconnecting ([#19](https://github.com/MetaMask/connect-tron/pull/19))
@@ -21,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Remove tronweb dependency ([#17](https://github.com/MetaMask/connect-tron/pull/17))
+
+### Fixed
+
+- Use separate listener for initially selected account ([#18](https://github.com/MetaMask/connect-tron/pull/18))
 
 ## [0.1.0]
 
