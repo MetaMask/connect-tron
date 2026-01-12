@@ -2,6 +2,7 @@ import { KnownSessionProperties } from '@metamask/chain-agnostic-permission';
 import {
   type CaipAccountId,
   type MultichainApiClient,
+  SessionData,
   type Transport,
   getDefaultTransport,
   getMultichainClient,
@@ -25,6 +26,7 @@ import {
   isAccountChangedEvent,
   scopeToChainId,
   scopeToNetworkType,
+  isSessionChangedEvent,
 } from './utils';
 
 /**
@@ -426,6 +428,7 @@ export class MetaMaskAdapter extends Adapter {
    * @param selectedAddress - The address that was selected by the user, if any
    */
   private updateSession(session: any, selectedScope?: Scope, selectedAddress?: string) {
+    const currentScope = this._scope;
     // Get session scopes
     const sessionScopes = new Set(Object.keys(session?.sessionScopes ?? {}));
 
@@ -461,7 +464,7 @@ export class MetaMaskAdapter extends Adapter {
     }
     // Update the address and scope
     this.setAddress(addressToConnect);
-    this.setScope(scope, false);
+    this.setScope(scope, currentScope !== scope);
   }
 
   /**
@@ -470,7 +473,7 @@ export class MetaMaskAdapter extends Adapter {
    */
   private startAccountsChangedListener(handler?: (data: any) => void) {
     this._removeAccountsChangedListener = this._client.onNotification(
-      handler ?? this.handleAccountsChangedEvent.bind(this),
+      handler ?? this.handleAccountsAndChainChangedEvent.bind(this),
     );
   }
 
@@ -486,18 +489,34 @@ export class MetaMaskAdapter extends Adapter {
    * Handles the accountsChanged event.
    * @param data - The event data
    */
-  private async handleAccountsChangedEvent(data: any) {
-    if (!isAccountChangedEvent(data)) {
-      return;
+  private async handleAccountsAndChainChangedEvent(data: any) {
+    if (isAccountChangedEvent(data)) {
+      const newAddressSelected = data?.params?.notification?.params?.[0];
+      if (!newAddressSelected) {
+        // Disconnect if no address selected
+        await this.disconnect();
+        return;
+      }
+      const session = await this._client.getSession();
+      this.updateSession(session, this._scope, newAddressSelected);  
+    } else if (isSessionChangedEvent(data)) {
+      const session = await this._client.getSession();
+      const scope = this.selectScopeFromSessionWithPriority(session!);
+
+      if (!scope) {
+        // Disconnect if no scope selected
+        await this.disconnect();
+        return;
+      }
+
+      const newAddressSelected = data?.params?.sessionScopes?.[scope]?.accounts?.[0];
+      if (!newAddressSelected) {
+        // Disconnect if no address selected
+        await this.disconnect();
+        return;
+      }
+      this.updateSession(session, scope);
     }
-    const newAddressSelected = data?.params?.notification?.params?.[0];
-    if (!newAddressSelected) {
-      // Disconnect if no address selected
-      await this.disconnect();
-      return;
-    }
-    const session = await this._client.getSession();
-    this.updateSession(session, this._scope, newAddressSelected);
   }
 
   /**
@@ -557,5 +576,17 @@ export class MetaMaskAdapter extends Adapter {
   private restoreScope(): Scope | undefined {
     const scope = localStorage.getItem('metamaskAdapterScope');
     return scope ? (scope as Scope) : undefined;
+  }
+
+  /**
+   * Selects the scope from the session with priority order: mainnet > shasta > nile
+   * @param session - The session data containing available scopes
+   * @returns The selected scope, or undefined if no scope is available
+   */
+  private selectScopeFromSessionWithPriority(session: SessionData): Scope | undefined {
+    const sessionScopes = new Set(Object.keys(session?.sessionScopes ?? {}));
+    const scopePriorityOrder = [Scope.MAINNET, Scope.SHASTA, Scope.NILE];
+
+    return scopePriorityOrder.find((scope) => sessionScopes.has(scope));
   }
 }
