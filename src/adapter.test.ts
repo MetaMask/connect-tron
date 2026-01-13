@@ -484,7 +484,7 @@ describe('MetaMaskAdapter', () => {
           },
         };
 
-        await (adapter as any).handleAccountsChangedEvent(eventData);
+        await (adapter as any).handleEvents(eventData);
 
         expect(adapter.address).toBe(TEST_ADDRESSES.MAINNET);
       });
@@ -493,7 +493,7 @@ describe('MetaMaskAdapter', () => {
         const originalAddress = adapter.address;
         const eventData = { invalid: true };
 
-        (adapter as any).handleAccountsChangedEvent(eventData);
+        (adapter as any).handleEvents(eventData);
 
         expect(adapter.address).toBe(originalAddress);
       });
