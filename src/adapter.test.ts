@@ -13,6 +13,7 @@ const mockClient: MockMultichainClient = {
 vi.mock('@metamask/multichain-api-client', () => ({
   getDefaultTransport: vi.fn(() => mockTransport),
   getMultichainClient: vi.fn(() => mockClient),
+  isMetamaskInstalled: vi.fn(() => true),
 }));
 
 // Mock global window object to prevent window.postMessage issues
