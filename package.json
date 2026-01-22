@@ -1,6 +1,6 @@
 {
   "name": "@metamask/connect-tron",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "license": "ISC",
   "description": "The MetaMask Connect Tron adapter",
   "homepage": "https://github.com/MetaMask/connect-tron#readme",
