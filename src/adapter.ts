@@ -6,6 +6,7 @@ import {
   type Transport,
   getDefaultTransport,
   getMultichainClient,
+  isMetamaskInstalled,
 } from '@metamask/multichain-api-client';
 import type { TronAddress } from '@metamask/multichain-api-client/dist/types/scopes/tron.types.cjs';
 import {
@@ -42,7 +43,7 @@ export class MetaMaskAdapter extends Adapter {
   url = 'https://metamask.io';
   icon = metamaskIcon;
 
-  private _readyState: WalletReadyState = WalletReadyState.Found; // Assume found until proven otherwise. Fixex the reconnect issue on page reload.
+  private _readyState: WalletReadyState = WalletReadyState.Loading;
   private _state: AdapterState = AdapterState.Disconnect; // So the library will connect once the user selects the wallet (Avoid 2 click)
   private _connecting = false;
   private _switchingChain = false;
@@ -337,29 +338,19 @@ export class MetaMaskAdapter extends Adapter {
    * Checks if the MetaMask wallet is available in the browser.
    * By default, the _readyState is set to Found to avoid issues on page reloads.
    * But if the wallet is not actually available, we need to update the _readyState accordingly.
-   * Average time for transport to be connected is around 50-300ms.
-   * Will retry up to maxAttempts times with a 10ms delay between attempts.
+   * Average time for wallet to be available is around 50ms.
    * @returns A promise that resolves to true if the wallet is found.
    */
-  private async checkWallet(attempt = 1, maxAttempts = 100): Promise<boolean> {
-    const isConnected = this._transport.isConnected();
-
-    if (isConnected) {
+  private async checkWallet(): Promise<boolean> {
+    const metamaskInstalled = await isMetamaskInstalled();
+    if (metamaskInstalled) {
       this._readyState = WalletReadyState.Found;
       this.emit('readyStateChanged', this.readyState);
-
       return true;
     }
-
-    if (attempt >= maxAttempts) {
-      this._readyState = WalletReadyState.NotFound;
-      this.emit('readyStateChanged', this.readyState);
-
-      return false;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, this._transport.warmupTimeout ?? 100));
-    return this.checkWallet(attempt + 1, maxAttempts);
+    this._readyState = WalletReadyState.NotFound;
+    this.emit('readyStateChanged', this.readyState);
+    return false;
   }
 
   /**
