@@ -98,6 +98,14 @@ export class MetaMaskAdapter extends Adapter {
     return this._readyState;
   }
 
+  /**
+   * Resolves whether the wallet is ready to connect.
+   * Unlike `readyState`, this resolves only after the asynchronous wallet check completes.
+   */
+  get walletReady(): Promise<boolean> {
+    return this._checkWalletPromise ?? this.checkWallet();
+  }
+
   /** Gets whether the adapter is currently connecting. */
   get connecting() {
     return this._connecting;

@@ -84,6 +84,7 @@ vi.mock('@tronweb3/tronwallet-abstract-adapter', () => ({
   isInBrowser: vi.fn(() => true),
 }));
 
+import { isMetamaskInstalled } from '@metamask/multichain-api-client';
 import { MetaMaskAdapter, MetaMaskAdapterName } from '../src/adapter';
 import { Scope } from '../src/types';
 import {
@@ -148,6 +149,38 @@ describe('MetaMaskAdapter', () => {
     it('should initialize with correct name and state', () => {
       expect(adapter.name).toBe(MetaMaskAdapterName);
       expect(adapter.state).toBe('Disconnect'); // Initial state is Disconnect
+    });
+  });
+
+  describe('walletReady', () => {
+    it('resolves only after the wallet check completes', async () => {
+      let resolveCheck: ((value: boolean) => void) | undefined;
+      vi.mocked(isMetamaskInstalled).mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveCheck = resolve;
+        }),
+      );
+
+      const pendingAdapter = new MetaMaskAdapter();
+      let settled = false;
+      const readyPromise = pendingAdapter.walletReady.then((value) => {
+        settled = true;
+        return value;
+      });
+
+      await Promise.resolve();
+      expect(settled).toBe(false);
+
+      resolveCheck?.(true);
+      await expect(readyPromise).resolves.toBe(true);
+    });
+
+    it('resolves false when MetaMask is not installed', async () => {
+      vi.mocked(isMetamaskInstalled).mockReturnValueOnce(Promise.resolve(false));
+
+      const unavailableAdapter = new MetaMaskAdapter();
+
+      await expect(unavailableAdapter.walletReady).resolves.toBe(false);
     });
   });
 
